@@ -17,29 +17,78 @@ void setup() {
   ledcAttach(in3, frecuencia, resolucion);
   ledcAttach(in4, frecuencia, resolucion);
 
+  // Asegurar paro inicial
+  setMotores(0, 0);
+  delay(1000);
+  Serial.println("Iniciando prueba de traccion...");
+
 }
 
 void loop() {
   
-  for(int duty = 0; duty <= 255; duty += 5)
-  {
-    ledcWrite(in1, duty);
-    ledcWrite(in3, duty);
-    ledcWrite(in2, 0);
-    ledcWrite(in4, 0);
-    delay(100);
-  }
-  delay(1000);
+  // 1. Adelante al ~70% de potencia
+  Serial.println(">> Adelante");
+  setMotores(180, 180);
+  delay(1500);
 
-  for(int duty = 0; duty <= 255; duty += 5)
-  {
+  setMotores(0, 0);
+  delay(500); // Pausa de inercia
+
+  // 2. Atras al ~70% de potencia
+  Serial.println(">> Atras");
+  setMotores(-180, -180);
+  delay(1500);
+
+  setMotores(0, 0);
+  delay(500);
+
+  // 3. Giro a la derecha en el sitio (izq avanza, der retrocede)
+  Serial.println(">> Giro Derecha");
+  setMotores(180, -180);
+  delay(1500);
+
+  setMotores(0, 0);
+  delay(500);
+
+  // 4. Giro a la izquierda en el sitio (izq retrocede, der avanza)
+  Serial.println(">> Giro Izquierda");
+  setMotores(-180, 180);
+  delay(1500);
+
+  // Pausa larga antes de reiniciar ciclo
+  Serial.println(">> Fin ciclo. Esperando 3s...\n");
+  setMotores(0, 0);
+  delay(3000);
+  
+
+}
+
+
+void setMotores(int vel_izquierdo, int vel_derecho){
+
+// Control motor izquierdo IN1, IN2
+  if(vel_izquierdo > 0){
+    ledcWrite(in2, 0);
+    ledcWrite(in1, vel_izquierdo);
+  } else if (vel_izquierdo < 0){
     ledcWrite(in1, 0);
-    ledcWrite(in3, 0);
-    delay(20);
-    ledcWrite(in2, duty);
-    ledcWrite(in4, duty);
-    delay(100);
+    ledcWrite(in2, abs(vel_izquierdo));
+  } else {
+    ledcWrite(in1, 0);
+    ledcWrite(in2, 0);
   }
-  delay(1000);
+
+
+// Control motor derecho IN3, IN4
+  if(vel_derecho > 0){
+    ledcWrite(in4, 0);
+    ledcWrite(in3, vel_derecho);
+  } else if (vel_derecho < 0){
+    ledcWrite(in3, 0);
+    ledcWrite(in4, abs(vel_derecho));
+  } else {
+    ledcWrite(in3, 0);
+    ledcWrite(in4, 0);
+  }
 
 }
