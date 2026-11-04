@@ -1,46 +1,34 @@
-#include <PS4Controller.h>
+#include "GamepadController.h"
 
-void onConnect() {
-  Serial.println("\n>>> Mando PS4 Conectado Exitosamente! <<<");
-  // Poner el LED del mando en azul fijo al conectar
-  PS4.setLed(0, 0, 255);
-  PS4.sendToController();
-}
-
-void onDisConnect() {
-  Serial.println("\n>>> Mando PS4 Desconectado <<<");
-}
+// Temporizador no bloqueante para imprimir en consola cada 100 ms
+unsigned long lastPrintTime = 0;
+const unsigned long printInterval = 100;
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println("Iniciando servicio Bluetooth PS4...");
-
-  // Callbacks para eventos de conexion
-  PS4.attachOnConnect(onConnect);
-  PS4.attachOnDisconnect(onDisConnect);
-
-  // Iniciar el stack Bluetooth. 
-  // Al dejarlo vacio, toma la MAC nativa de la ESP32
-  PS4.begin("EC:C9:FF:FD:F8:FA");
-
-  Serial.println("Esperando enlace. Enciende el control con el boton PS...");
+  Serial.println("--- PRUEBA MODULAR DEL MANDO PS4 ---");
+  initGamepad();
 }
 
 void loop() {
-  if (PS4.isConnected()) {
-    // Lectura de los controles que usaremos para el carro
-    int avance  = PS4.R2Value();  // Gatillo R2: 0 a 255
-    int reversa = PS4.L2Value();  // Gatillo L2: 0 a 255
-    int giroX   = PS4.LStickX();  // Palanca izquierda X: -127 a 127
+  // Lectura del módulo del control
+  GamepadInput pad = readGamepad();
 
-    // Imprimir telemetría
-    Serial.printf("R2 (Adelante): %3d | L2 (Reversa): %3d | Stick X (Giro): %4d | Bateria: %d%%\n",
-                  avance, reversa, giroX, PS4.Battery());
+  if (pad.connected) {
+    // Imprimir datos a intervalos fijos sin usar delay() pesado
+    if (millis() - lastPrintTime >= printInterval) {
+      lastPrintTime = millis();
 
-    delay(50); // Muestreo fluido para la consola
+      Serial.printf("Throttle (R2 - L2): %4d | Steering (Stick X): %4d | Batería: %3d%%\n",
+                    pad.throttle, pad.steering, pad.battery);
+    }
   } else {
-    delay(500);
+    // Si no está conectado, avisa periódicamente
+    if (millis() - lastPrintTime >= 1000) {
+      lastPrintTime = millis();
+      Serial.println("Esperando conexión del DualShock 4...");
+    }
   }
 }
