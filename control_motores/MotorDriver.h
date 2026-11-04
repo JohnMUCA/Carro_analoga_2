@@ -9,25 +9,25 @@ const uint8_t  PWM_RES  = 8;    // 8 bits (0 - 255)
 
 // --- Asignación de Pines GPIO para 4 Motores ---
 // Lado Izquierdo (Frontal y Trasero)
-const int PIN_M_FL_IN1 = 33;
-const int PIN_M_FL_IN2 = 32;
-const int PIN_M_RL_IN1 = 19; // Ajusta según tu conexionado
-const int PIN_M_RL_IN2 = 18; // Ajusta según tu conexionado
+const int PIN_M_FL_IN3 = 27;  //  <--->
+const int PIN_M_FL_IN4 = 14;  //Estan trucados para ajustar el giro
+const int PIN_M_RL_IN1 = 13; 
+const int PIN_M_RL_IN2 = 12; 
 
 // Lado Derecho (Frontal y Trasero)
-const int PIN_M_FR_IN3 = 25;
-const int PIN_M_FR_IN4 = 26;
-const int PIN_M_RR_IN3 = 27; // Ajusta según tu conexionado
-const int PIN_M_RR_IN4 = 14; // Ajusta según tu conexionado
+const int PIN_M_FR_IN1 = 33;  //  <--->
+const int PIN_M_FR_IN2 = 32;  // Estan trucados para ajustar el giro
+const int PIN_M_RR_IN3 = 25; 
+const int PIN_M_RR_IN4 = 26; 
 
 // --- Asignación de Canales LEDC (0 a 7 disponibles en ESP32 estándar) ---
-const uint8_t CH_FL_IN1 = 0;
-const uint8_t CH_FL_IN2 = 1;
+const uint8_t CH_FL_IN3 = 0;
+const uint8_t CH_FL_IN4 = 1;
 const uint8_t CH_RL_IN1 = 2;
 const uint8_t CH_RL_IN2 = 3;
 
-const uint8_t CH_FR_IN3 = 4;
-const uint8_t CH_FR_IN4 = 5;
+const uint8_t CH_FR_IN1 = 4;
+const uint8_t CH_FR_IN2 = 5;
 const uint8_t CH_RR_IN3 = 6;
 const uint8_t CH_RR_IN4 = 7;
 

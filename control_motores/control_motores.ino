@@ -1,38 +1,47 @@
 #include "MotorDriver.h"
 
+int speed_prueba = 100;
+
 void setup() {
   Serial.begin(115200);
+  
   initMotorDriver();
+  
   delay(1000);
-  Serial.println("--- MODO CALIBRACION RUEDA POR RUEDA ---");
+  Serial.println("Driver 4WD inicializado (LEDC v2.x). Iniciando pruebas...");
 }
 
 void loop() {
-  // 1. Frontal Izquierda
-  Serial.println("Probando: FRONT-LEFT (Adelante)");
-  setMotorPWM(CH_FL_IN1, CH_FL_IN2, 180);
-  delay(2000);
-  stopMotors();
-  delay(1000);
+  // 1. Adelante
+  Serial.println(">> Adelante");
+  setChassisSpeed(speed_prueba, speed_prueba);
+  delay(1500);
 
-  // 2. Trasera Izquierda
-  Serial.println("Probando: REAR-LEFT (Adelante)");
-  setMotorPWM(CH_RL_IN1, CH_RL_IN2, 180);
-  delay(2000);
   stopMotors();
-  delay(1000);
+  delay(500);
 
-  // 3. Frontal Derecha
-  Serial.println("Probando: FRONT-RIGHT (Adelante)");
-  setMotorPWM(CH_FR_IN3, CH_FR_IN4, 180);
-  delay(2000);
+  // 2. Atrás
+  Serial.println(">> Atras");
+  setChassisSpeed(-speed_prueba, -speed_prueba);
+  delay(1500);
+
   stopMotors();
-  delay(1000);
+  delay(500);
 
-  // 4. Trasera Derecha
-  Serial.println("Probando: REAR-RIGHT (Adelante)");
-  setMotorPWM(CH_RR_IN3, CH_RR_IN4, 180);
-  delay(2000);
+  // 3. Giro sobre su propio eje a la derecha
+  Serial.println(">> Giro Derecha");
+  setChassisSpeed(speed_prueba, -speed_prueba);
+  delay(1500);
+
+  stopMotors();
+  delay(500);
+
+  // 4. Giro sobre su propio eje a la izquierda
+  Serial.println(">> Giro Izquierda");
+  setChassisSpeed(-speed_prueba, speed_prueba);
+  delay(1500);
+
+  Serial.println(">> Fin ciclo. Esperando 3s...\n");
   stopMotors();
   delay(3000);
 }
