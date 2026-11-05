@@ -1,9 +1,11 @@
 #include "GamepadController.h"
 
+static bool lastPsButtonState = false;
+
 // Callback al establecer enlace Bluetooth
 static void onConnectCallback() {
   Serial.println("\n>>> Mando PS4 Conectado Exitosamente! <<<");
-  PS4.setLed(0, 0, 255); // Azul fijo
+  PS4.setLed(0, 0, 255); // Azul fijo (Modo Manual por defecto)
   PS4.sendToController();
 }
 
@@ -20,15 +22,33 @@ void initGamepad() {
   Serial.println("Esperando enlace. Enciende el control con el boton PS...");
 }
 
+void setGamepadLed(uint8_t r, uint8_t g, uint8_t b) {
+  if (PS4.isConnected()) {
+    PS4.setLed(r, g, b);
+    PS4.sendToController();
+  }
+}
+
 GamepadInput readGamepad() {
-  GamepadInput input = {0, 0, false, 0};
+  GamepadInput input = {0, 0, false, 0, false, false};
 
   if (!PS4.isConnected()) {
+    lastPsButtonState = false;
     return input;
   }
 
   input.connected = true;
   input.battery = PS4.Battery();
+
+  // Detección de flanco de subida en el botón PS (evita rebotes al cambiar de modo)
+  bool currentPsButton = PS4.PSButton();
+  if (currentPsButton && !lastPsButtonState) {
+    input.psButtonJustPressed = true;
+  }
+  lastPsButtonState = currentPsButton;
+
+  // Botón Options o Triángulo mantenido para calibrar sensores desde el mando
+  input.calibrateHeld = PS4.Options() || PS4.Triangle();
 
   // Lectura de gatillos (0 a 255)
   int r2 = PS4.R2Value();
