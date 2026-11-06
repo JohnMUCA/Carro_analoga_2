@@ -2,17 +2,27 @@
 #define LINE_FOLLOWER_H
 
 #include <Arduino.h>
+#include "MotorDriver.h"
 
 const uint8_t NUM_SENSORS = 8;
+const uint8_t TOP_SPEED = 255;
+
+// Velocidad PWM de giro sobre su propio eje durante la autocalibración
+const int CALIB_TURN_SPEED = 160;
+
+// Velocidad PWM de giro sobre su propio eje al recuperar esquinas de 90° (cuando pierde la línea en el vértice)
+const int CORNER_PIVOT_SPEED = 170;
 
 // Pines ADC del ESP32 conectados a los sensores 0 al 7 del QTR-8A
 const uint8_t QTR_PINS[NUM_SENSORS] = {14, 27, 26, 25, 33, 32, 35, 34}; 
 
-// Estructura para configurar las ganancias del PI
+// Estructura para configurar las ganancias del PID
 struct PIDConfig {
   float Kp;
   float Ki;
-  int baseSpeed;        // Velocidad crucero hacia adelante (ej. 140 - 200)
+  float Kd;             // Término derivativo (anticipa curvas de 90° y amortigua oscilaciones)
+  int baseSpeed;        // Velocidad crucero en recta (ej. 55 - 160)
+  int topSpeed;         // Límite máximo de PWM en motores en curva (por defecto 255)
   int maxControl;       // Límite máximo de corrección de giro (ej. 150 - 255)
   float integralLimit;  // Límite anti-windup para el término integral
 };
@@ -28,7 +38,8 @@ struct LineCorrection {
 
 // Funciones públicas
 void initLineFollower();
-void calibrateLineSensor(); // Debe ejecutarse pasando el sensor sobre línea y fondo
+void calibrateLineSensor();     // Toma una muestra de calibración de los 8 sensores
+void autoCalibrateLineSensor(); // Autocalibración: barre izquierda/derecha con los motores y se centra en la línea
 LineCorrection computeLineCorrection(PIDConfig &pid);
 void resetPI();
 

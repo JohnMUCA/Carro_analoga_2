@@ -1,47 +1,60 @@
+#include "MotorDriver.h"
 #include "LineFollower.h"
+#include "BluetoothTuner.h"
 
-// Definición de las constantes iniciales del controlador PI
+// Configuración inicial del controlador PID
 PIDConfig piTune = {
-  .Kp = 0.045f,         // Iniciar con valores bajos (ej: 0.03 a 0.06)
-  .Ki = 0.005f,         // Término integral pequeño
-  .baseSpeed = 160,     // Velocidad base
-  .maxControl = 200,    // Límite de giro
-  .integralLimit = 2000.0f // Límite anti-windup
+  .Kp = 0.055f,
+  .Ki = 0.000f,  // En curvas de 90° conviene iniciar con Ki = 0 para evitar sobreimpulso
+  .Kd = 0.300f,  // Término derivativo: anticipa esquinas de 90° y amortigua zig-zag
+  .baseSpeed = 55,
+  .topSpeed = 255,
+  .maxControl = 200,
+  .integralLimit = 2000.0f
+};
+
+TunerState tunerState = {
+  .motorsRunning = false, // Inicia detenido; envía 'go' o '1' por Bluetooth/Serial para arrancar
+  .telemetryActive = true
 };
 
 unsigned long lastPrint = 0;
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(1500); // Pausa inicial tras encender para soltar el carro sobre la línea
 
-  Serial.println("=== INICIALIZANDO SENSOR QTR-8A ===");
+  Serial.println("=== INICIALIZANDO SEGUIDOR DE LINEA + TUNER BLUETOOTH ===");
+  initMotorDriver();
   initLineFollower();
 
-  // Fase de Calibración: Durante 6 segundos desliza el sensor de lado a lado sobre la pista
-  Serial.println(">> CALIBRANDO: Mueve el sensor sobre la línea y el fondo por 6 segundos...");
-  unsigned long calibStart = millis();
-  while (millis() - calibStart < 6000) {
-    calibrateLineSensor();
-    delay(10);
-  }
-  Serial.println(">> Calibración finalizada exitosamente.\n");
+  // Fase de Autocalibración: El carro gira izquierda/derecha sobre la línea y se centra solo
+  Serial.println(">> AUTOCALIBRANDO: El carro girara sobre la linea...");
+  autoCalibrateLineSensor();
+  Serial.println(">> Autocalibracion y centrado finalizados exitosamente.");
+
+  initBluetoothTuner();
+  printTunerStatus(piTune, tunerState);
 }
 
 void loop() {
-  // Ejecutar el cálculo PI
+  // 1. Leer comandos en tiempo real desde Bluetooth ("Carro_Seguidor_PI") o Monitor Serie
+  updateBluetoothTuner(piTune, tunerState);
+
+  // 2. Ejecutar el cálculo PID
   LineCorrection corr = computeLineCorrection(piTune);
 
-  // Imprimir telemetría cada 100 ms para inspeccionar el comportamiento
-  if (millis() - lastPrint >= 100) {
-    lastPrint = millis();
+  // 3. Aplicar velocidad a los motores solo si está en marcha ('go')
+  if (tunerState.motorsRunning) {
+    setChassisSpeed(corr.speedLeft, corr.speedRight);
+  } else {
+    stopMotors();
+  }
 
-    Serial.printf("Pos: %4d | Error: %5d | Izq: %4d | Der: %4d | Perdió: %s\n",
-                  corr.position,
-                  corr.error,
-                  corr.speedLeft,
-                  corr.speedRight,
-                  corr.lineLost ? "SI" : "NO");
+  // 4. Imprimir telemetría cada 150 ms
+  if (tunerState.telemetryActive && (millis() - lastPrint >= 150)) {
+    lastPrint = millis();
+    sendTunerTelemetry(piTune, corr);
   }
 
   delay(10); // Frecuencia de muestreo de ~100 Hz

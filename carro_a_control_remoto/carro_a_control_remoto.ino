@@ -1,43 +1,88 @@
 #include "MotorDriver.h"
 #include "GamepadController.h"
 #include "LineFollower.h"
+#include "BluetoothTuner.h"
 
-// Configuración inicial del controlador PI para el seguidor de línea
+// ============================================================================
+// SELECTOR DE MODO DE OPERACIÓN:
+//   true  -> Modo Sintonización PID por Bluetooth Serial ("Carro_Seguidor_PI")
+//            Conéctate desde el celular/PC (app Serial Bluetooth Terminal)
+//            para cambiar Kp, Kd, Ki, baseSpeed y topSpeed en vivo en la pista.
+//   false -> Modo Integrado con Mando PS4 (Azul = Manual, Verde = Seguidor)
+// ============================================================================
+const bool USE_BT_TUNER = true;
+
+// Configuración inicial del controlador PID para el seguidor de línea
 PIDConfig piTune = {
-  .Kp = 0.045f,
-  .Ki = 0.005f,
-  .baseSpeed = 160,
+  .Kp = 0.65f,
+  .Ki = 0.000f,  // En curvas de 90° conviene iniciar con Ki = 0 para evitar sobreimpulso
+  .Kd = 3.250f,  // Término derivativo: anticipa esquinas de 90° y amortigua zig-zag
+  .baseSpeed = 65,
+  .topSpeed = 255,
   .maxControl = 200,
   .integralLimit = 2000.0f
 };
 
+// Estado para el modo de sintonización Bluetooth
+TunerState tunerState = {
+  .motorsRunning = false,  // Inicia detenido por seguridad; envía 'go' o '1' para arrancar
+  .telemetryActive = true
+};
+
+// Estado para el modo con mando PS4
 bool autonomousMode = false; // false = Control Remoto (Azul), true = Seguidor de Línea (Verde)
 unsigned long lastPrint = 0;
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(1500); // Pausa inicial tras encender para soltar el carro sobre la línea
 
   // 1. Inicialización de motores y sensores
   initMotorDriver();
   initLineFollower();
 
-  // 2. Calibración inicial de 6 segundos (igual que en seguidor_linea.ino)
-  // También puedes recalibrar en cualquier momento manteniendo presionado TRIÁNGULO u OPTIONS en el mando PS4
-  Serial.println("=== INICIALIZANDO SISTEMA INTEGRADO ===");
-  Serial.println(">> CALIBRANDO SENSORES (6 s): Mueve el sensor sobre la linea y el fondo...");
-  unsigned long calibStart = millis();
-  while (millis() - calibStart < 6000) {
-    calibrateLineSensor();
-    delay(10);
-  }
-  Serial.println(">> Calibracion inicial lista.");
+  // 2. Autocalibración automática: el carro barre izquierda/derecha y se centra en la línea
+  Serial.println("=== INICIALIZANDO SISTEMA ===");
+  Serial.println(">> AUTOCALIBRANDO SENSORES: El carro girara sobre la linea...");
+  autoCalibrateLineSensor();
+  Serial.println(">> Autocalibracion y centrado finalizados.");
 
-  // 3. Inicialización del mando PS4
-  initGamepad();
+  // 3. Inicializar Bluetooth según el modo elegido
+  if (USE_BT_TUNER) {
+    initBluetoothTuner();
+    printTunerStatus(piTune, tunerState);
+  } else {
+    initGamepad();
+  }
 }
 
 void loop() {
+  // --------------------------------------------------------------------------
+  // MODO 1: SINTONIZACIÓN EN TIEMPO REAL POR BLUETOOTH SERIAL / MONITOR SERIE
+  // --------------------------------------------------------------------------
+  if (USE_BT_TUNER) {
+    updateBluetoothTuner(piTune, tunerState);
+
+    LineCorrection corr = computeLineCorrection(piTune);
+
+    if (tunerState.motorsRunning) {
+      setChassisSpeed(corr.speedLeft, corr.speedRight);
+    } else {
+      stopMotors();
+    }
+
+    if (tunerState.telemetryActive && (millis() - lastPrint >= 150)) {
+      lastPrint = millis();
+      sendTunerTelemetry(piTune, corr);
+    }
+
+    delay(10); // ~100 Hz para el lazo PID
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // MODO 2: OPERACIÓN CON MANDO PS4 (MANUAL / AUTÓNOMO)
+  // --------------------------------------------------------------------------
   GamepadInput pad = readGamepad();
 
   if (pad.connected) {
@@ -56,15 +101,11 @@ void loop() {
       }
     }
 
-    // B. Si se mantiene presionado TRIÁNGULO u OPTIONS en modo manual, recalibra sensores en vivo
+    // B. Si se presiona TRIÁNGULO u OPTIONS en modo manual, ejecuta la autocalibración
     if (!autonomousMode && pad.calibrateHeld) {
-      stopMotors();
-      calibrateLineSensor();
-      if (millis() - lastPrint >= 200) {
-        lastPrint = millis();
-        Serial.println(">> Calibrando sensores desde el mando (Mueve el carro sobre blanco y negro)...");
-      }
-      delay(10);
+      Serial.println(">> Ejecutando autocalibracion automatica desde el mando...");
+      autoCalibrateLineSensor();
+      Serial.println(">> Autocalibracion completada.");
       return;
     }
 
@@ -82,7 +123,7 @@ void loop() {
                       corr.speedRight,
                       corr.lineLost ? "SI" : "NO");
       }
-      delay(10); // ~100 Hz para el lazo PI
+      delay(10); // ~100 Hz para el lazo PID
     } else {
       // Modo Manual (Arcade Drive)
       int speedLeft  = constrain(pad.throttle + pad.steering, -255, 255);
@@ -90,7 +131,7 @@ void loop() {
 
       setChassisSpeed(speedLeft, speedRight);
 
-      // En modo manual también leemos la línea cada 200 ms solo para verificar en el Monitor Serie que el Bluetooth no bloquee el sensor
+      // En modo manual también leemos la línea cada 200 ms para verificar lecturas en Monitor Serie
       if (millis() - lastPrint >= 200) {
         lastPrint = millis();
         LineCorrection corr = computeLineCorrection(piTune);
