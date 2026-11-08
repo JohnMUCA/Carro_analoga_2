@@ -9,18 +9,8 @@ static void configureChannelPair(uint8_t ch1, int pin1, uint8_t ch2, int pin2) {
   ledcAttachPin(pin2, ch2);
 }
 
-void initMotorDriver() {
-  // Inicialización de los 4 puentes H / motores
-  configureChannelPair(CH_FL_IN3, PIN_M_FL_IN3, CH_FL_IN4, PIN_M_FL_IN4);
-  configureChannelPair(CH_RL_IN1, PIN_M_RL_IN1, CH_RL_IN2, PIN_M_RL_IN2);
-  configureChannelPair(CH_FR_IN1, PIN_M_FR_IN1, CH_FR_IN2, PIN_M_FR_IN2);
-  configureChannelPair(CH_RR_IN3, PIN_M_RR_IN3, CH_RR_IN4, PIN_M_RR_IN4);
-
-  stopMotors();
-}
-
 // Aplica velocidad (-255 a 255) a un par específico de canales
-void setMotorPWM(uint8_t chForward, uint8_t chBackward, int speed) {
+static void setMotorPWM(uint8_t chForward, uint8_t chBackward, int speed) {
   speed = constrain(speed, -255, 255);
 
   if (speed > 0) {
@@ -33,6 +23,15 @@ void setMotorPWM(uint8_t chForward, uint8_t chBackward, int speed) {
     ledcWrite(chForward, 0);
     ledcWrite(chBackward, 0);
   }
+}
+
+void initMotorDriver() {
+  configureChannelPair(CH_FL_IN3, PIN_M_FL_IN3, CH_FL_IN4, PIN_M_FL_IN4);
+  configureChannelPair(CH_RL_IN1, PIN_M_RL_IN1, CH_RL_IN2, PIN_M_RL_IN2);
+  configureChannelPair(CH_FR_IN1, PIN_M_FR_IN1, CH_FR_IN2, PIN_M_FR_IN2);
+  configureChannelPair(CH_RR_IN3, PIN_M_RR_IN3, CH_RR_IN4, PIN_M_RR_IN4);
+
+  stopMotors();
 }
 
 // Control diferencial: sincroniza los 2 motores izquierdos y los 2 derechos

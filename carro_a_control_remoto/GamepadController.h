@@ -12,14 +12,16 @@ const int STICK_DEADZONE = 12;
 
 // Estructura para entregar datos limpios al loop principal
 struct GamepadInput {
-  int throttle; // Consigna longitudinal (-255 reversa a +255 avance)
-  int steering; // Consigna de giro (-255 izquierda a +255 derecha)
+  int throttle;             // Consigna longitudinal (-255 reversa a +255 avance)
+  int steering;             // Consigna de giro (-255 izquierda a +255 derecha)
   bool connected;
-  int battery;
+  bool psButtonJustPressed; // True solo en el instante en que se presiona el botón PS
+  bool calibrateHeld;       // True mientras se mantiene presionado Options/Triángulo para calibrar
 };
 
 // Funciones públicas del módulo
 void initGamepad();
 GamepadInput readGamepad();
+void setGamepadLed(uint8_t r, uint8_t g, uint8_t b);
 
 #endif
