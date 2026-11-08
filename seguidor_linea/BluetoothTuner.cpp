@@ -19,7 +19,7 @@ void initBluetoothTuner() {
 }
 
 void printTunerStatus(const PIDConfig &pid, const TunerState &state) {
-  char buf[360];
+  char buf[340];
   snprintf(buf, sizeof(buf),
            "\n--- ESTADO ACTUAL DEL CONTROLADOR PID ---\n"
            "  Motores   : %s\n"
@@ -31,14 +31,13 @@ void printTunerStatus(const PIDConfig &pid, const TunerState &state) {
            "  maxControl: %d\n"
            "-----------------------------------------\n"
            "Comandos:\n"
-           "  kp=0.05   -> Cambiar Kp\n"
-           "  kd=0.30   -> Cambiar Kd (derivativo para curvas 90 y amortiguacion)\n"
+           "  kp=0.65   -> Cambiar Kp\n"
+           "  kd=3.25   -> Cambiar Kd\n"
            "  ki=0.000  -> Cambiar Ki\n"
-           "  base=55   -> Cambiar velocidad base\n"
+           "  base=65   -> Cambiar velocidad base\n"
            "  top=255   -> Cambiar velocidad tope\n"
            "  max=200   -> Cambiar limite maxControl\n"
-           "  vel=80    -> Escalar proporcionalmente Kp, Ki, Kd y velocidades\n"
-           "  scale=1.2 -> Multiplicar ganancias y velocidades por un factor\n"
+           "  vel=80    -> Escalar proporcionalmente ganancias y velocidades\n"
            "  go  / 1   -> Arrancar motores en pista\n"
            "  stop / 0  -> Frenar motores inmediatamente\n"
            "  cal       -> Autocalibrar girando el carro sobre la linea\n"
@@ -69,7 +68,7 @@ static void processCommand(String cmd, PIDConfig &pid, TunerState &state) {
   String lower = cmd;
   lower.toLowerCase();
 
-  // 1. Comandos de marcha / parada rápida
+  // 1. Comandos de marcha, parada y utilidades
   if (lower == "stop" || lower == "s" || lower == "0") {
     state.motorsRunning = false;
     stopMotors();
@@ -106,7 +105,7 @@ static void processCommand(String cmd, PIDConfig &pid, TunerState &state) {
     return;
   }
 
-  // 2. Comandos con valor (admite 'kp=0.15' o 'kp 0.15')
+  // 2. Comandos con valor (admite 'kp=0.65' o 'kp 0.65')
   int sepIndex = lower.indexOf('=');
   if (sepIndex < 0) {
     sepIndex = lower.indexOf(' ');
@@ -149,10 +148,6 @@ static void processCommand(String cmd, PIDConfig &pid, TunerState &state) {
       } else {
         broadcastPrintln(">> Error: baseSpeed actual debe ser > 0 para escalar con 'vel='.");
       }
-    } else if (key == "scale") {
-      applyProportionalScale(pid, val);
-      broadcastPrintln(">> Escalado aplicado (factor x" + String(val, 2) + ")");
-      printTunerStatus(pid, state);
     } else {
       broadcastPrintln(">> Comando desconocido: '" + cmd + "'. Escribe '?' para ayuda.");
     }

@@ -5,16 +5,15 @@
 #include "MotorDriver.h"
 
 const uint8_t NUM_SENSORS = 8;
-const uint8_t TOP_SPEED = 255;
 
 // Velocidad PWM de giro sobre su propio eje durante la autocalibración
-const int CALIB_TURN_SPEED = 115;
+const int CALIB_TURN_SPEED = 130;
 
-// Velocidad PWM de giro sobre su propio eje al recuperar esquinas de 90° (cuando pierde la línea en el vértice)
-const int CORNER_PIVOT_SPEED = 120;
+// Velocidad PWM de giro sobre su propio eje al recuperar esquinas de 90°
+const int CORNER_PIVOT_SPEED = 170;
 
 // Pines ADC del ESP32 conectados a los sensores 0 al 7 del QTR-8A
-const uint8_t QTR_PINS[NUM_SENSORS] = {14, 27, 26, 25, 33, 32, 35, 34}; 
+const uint8_t QTR_PINS[NUM_SENSORS] = {14, 27, 26, 25, 33, 32, 35, 34};
 
 // Estructura para configurar las ganancias del PID
 struct PIDConfig {
@@ -38,8 +37,7 @@ struct LineCorrection {
 
 // Funciones públicas
 void initLineFollower();
-void calibrateLineSensor();     // Toma una muestra de calibración de los 8 sensores
-void autoCalibrateLineSensor(); // Autocalibración: barre izquierda/derecha con los motores y se centra en la línea
+void autoCalibrateLineSensor(); // Barre izquierda/derecha con los motores y centra el carro en la línea
 LineCorrection computeLineCorrection(PIDConfig &pid);
 void resetPI();
 

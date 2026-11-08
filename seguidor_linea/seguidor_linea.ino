@@ -4,10 +4,10 @@
 
 // Configuración inicial del controlador PID
 PIDConfig piTune = {
-  .Kp = 0.055f,
-  .Ki = 0.000f,  // En curvas de 90° conviene iniciar con Ki = 0 para evitar sobreimpulso
-  .Kd = 0.300f,  // Término derivativo: anticipa esquinas de 90° y amortigua zig-zag
-  .baseSpeed = 55,
+  .Kp = 0.65f,
+  .Ki = 0.000f,
+  .Kd = 3.250f,
+  .baseSpeed = 65,
   .topSpeed = 255,
   .maxControl = 200,
   .integralLimit = 2000.0f

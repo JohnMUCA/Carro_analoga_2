@@ -30,7 +30,7 @@ void setGamepadLed(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 GamepadInput readGamepad() {
-  GamepadInput input = {0, 0, false, 0, false, false};
+  GamepadInput input = {0, 0, false, false, false};
 
   if (!PS4.isConnected()) {
     lastPsButtonState = false;
@@ -38,7 +38,6 @@ GamepadInput readGamepad() {
   }
 
   input.connected = true;
-  input.battery = PS4.Battery();
 
   // Detección de flanco de subida en el botón PS (evita rebotes al cambiar de modo)
   bool currentPsButton = PS4.PSButton();
@@ -47,15 +46,11 @@ GamepadInput readGamepad() {
   }
   lastPsButtonState = currentPsButton;
 
-  // Botón Options o Triángulo mantenido para calibrar sensores desde el mando
+  // Botón Options o Triángulo para autocalibrar sensores desde el mando
   input.calibrateHeld = PS4.Options() || PS4.Triangle();
 
-  // Lectura de gatillos (0 a 255)
-  int r2 = PS4.R2Value();
-  int l2 = PS4.L2Value();
-
   // Acelerador longitudinal: R2 avanza (+), L2 retrocede (-)
-  input.throttle = r2 - l2;
+  input.throttle = PS4.R2Value() - PS4.L2Value();
 
   // Lectura de dirección (-127 a 127) y aplicación de zona muerta
   int rawX = PS4.LStickX();

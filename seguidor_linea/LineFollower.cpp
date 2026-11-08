@@ -11,9 +11,6 @@ static float filteredDerivative = 0.0f;
 static unsigned long lastComputeTime = 0;
 static int lastValidPosition = 3500;
 
-// Declaración adelantada para usarla en el autocentrado
-static int readLinePosition(bool &lineLost);
-
 void initLineFollower() {
   for (uint8_t i = 0; i < NUM_SENSORS; i++) {
     pinMode(QTR_PINS[i], INPUT);
@@ -30,8 +27,8 @@ void resetPI() {
   lastComputeTime = millis();
 }
 
-void calibrateLineSensor() {
-  // Tomar lecturas para registrar valores de blanco y negro
+// Toma una muestra de calibración de los 8 sensores para registrar blanco y negro
+static void sampleSensorsCalibration() {
   for (uint8_t i = 0; i < NUM_SENSORS; i++) {
     uint16_t value = analogRead(QTR_PINS[i]);
     if (value < sensorMin[i]) sensorMin[i] = value;
@@ -44,61 +41,9 @@ static void sweepAndSample(int speedLeft, int speedRight, unsigned long duration
   setChassisSpeed(speedLeft, speedRight);
   unsigned long start = millis();
   while (millis() - start < durationMs) {
-    calibrateLineSensor();
+    sampleSensorsCalibration();
     delay(5);
   }
-}
-
-void autoCalibrateLineSensor() {
-  // 1. Reiniciar mínimos y máximos antes de iniciar el barrido
-  initLineFollower();
-
-  // 2. Barrido oscilatorio sobre el propio eje (Derecha -> Izquierda -> Derecha -> Izquierda)
-  sweepAndSample( CALIB_TURN_SPEED, -CALIB_TURN_SPEED, 550);  // Medio giro a la derecha
-  stopMotors();
-  delay(80);
-
-  sweepAndSample(-CALIB_TURN_SPEED,  CALIB_TURN_SPEED, 1100); // Barrido completo a la izquierda
-  stopMotors();
-  delay(80);
-
-  sweepAndSample( CALIB_TURN_SPEED, -CALIB_TURN_SPEED, 1100); // Barrido completo a la derecha
-  stopMotors();
-  delay(80);
-
-  sweepAndSample(-CALIB_TURN_SPEED,  CALIB_TURN_SPEED, 1100); // Barrido completo a la izquierda
-  stopMotors();
-  delay(80);
-
-  // 3. Respaldo de seguridad: si algún sensor extremo no alcanzó a pisar la línea
-  //    (rango < 350), hereda el blanco mínimo y negro máximo globales medidos.
-  uint16_t globalMin = 4095;
-  uint16_t globalMax = 0;
-  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
-    if (sensorMin[i] < globalMin) globalMin = sensorMin[i];
-    if (sensorMax[i] > globalMax) globalMax = sensorMax[i];
-  }
-  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
-    if (sensorMax[i] <= sensorMin[i] || (sensorMax[i] - sensorMin[i]) < 350) {
-      sensorMin[i] = globalMin;
-      sensorMax[i] = globalMax;
-    }
-  }
-
-  // 4. Auto-centrado final: regresa girando a la derecha y se frena apenas centra la línea
-  setChassisSpeed(CALIB_TURN_SPEED, -CALIB_TURN_SPEED);
-  unsigned long centerStart = millis();
-  while (millis() - centerStart < 1000) {
-    bool lost = false;
-    int pos = readLinePosition(lost);
-    if (!lost && pos >= 2700 && pos <= 4300) {
-      break; // Línea centrada bajo el sensor
-    }
-    delay(5);
-  }
-
-  stopMotors();
-  resetPI();
 }
 
 // Lee los sensores, normaliza las lecturas de 0 a 1000 y calcula el centro ponderado
@@ -137,6 +82,58 @@ static int readLinePosition(bool &lineLost) {
   return lastValidPosition;
 }
 
+void autoCalibrateLineSensor() {
+  // 1. Reiniciar mínimos y máximos antes de iniciar el barrido
+  initLineFollower();
+
+  // 2. Barrido oscilatorio sobre el propio eje (Derecha -> Izquierda -> Derecha -> Izquierda)
+  sweepAndSample( CALIB_TURN_SPEED, -CALIB_TURN_SPEED, 550);
+  stopMotors();
+  delay(80);
+
+  sweepAndSample(-CALIB_TURN_SPEED,  CALIB_TURN_SPEED, 1100);
+  stopMotors();
+  delay(80);
+
+  sweepAndSample( CALIB_TURN_SPEED, -CALIB_TURN_SPEED, 1100);
+  stopMotors();
+  delay(80);
+
+  sweepAndSample(-CALIB_TURN_SPEED,  CALIB_TURN_SPEED, 1100);
+  stopMotors();
+  delay(80);
+
+  // 3. Respaldo de seguridad: si algún sensor extremo no alcanzó a pisar la línea
+  //    (rango < 350), hereda el blanco mínimo y negro máximo globales medidos.
+  uint16_t globalMin = 4095;
+  uint16_t globalMax = 0;
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    if (sensorMin[i] < globalMin) globalMin = sensorMin[i];
+    if (sensorMax[i] > globalMax) globalMax = sensorMax[i];
+  }
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    if (sensorMax[i] <= sensorMin[i] || (sensorMax[i] - sensorMin[i]) < 350) {
+      sensorMin[i] = globalMin;
+      sensorMax[i] = globalMax;
+    }
+  }
+
+  // 4. Auto-centrado final: regresa girando a la derecha y se frena apenas centra la línea
+  setChassisSpeed(CALIB_TURN_SPEED, -CALIB_TURN_SPEED);
+  unsigned long centerStart = millis();
+  while (millis() - centerStart < 1000) {
+    bool lost = false;
+    int pos = readLinePosition(lost);
+    if (!lost && pos >= 2700 && pos <= 4300) {
+      break;
+    }
+    delay(5);
+  }
+
+  stopMotors();
+  resetPI();
+}
+
 LineCorrection computeLineCorrection(PIDConfig &pid) {
   LineCorrection result;
   unsigned long now = millis();
@@ -151,17 +148,14 @@ LineCorrection computeLineCorrection(PIDConfig &pid) {
 
   int limit = (pid.topSpeed > 0 && pid.topSpeed <= 255) ? pid.topSpeed : 255;
 
-  // CASO ESPECIAL ESQUINA 90°: Si el carro se pasa unos milímetros del vértice de 90°
-  // y pierde la línea, frena el avance longitudinal y pivota sobre su propio eje
-  // hacia el lado donde vio la línea por última vez hasta reengancharla.
+  // CASO ESPECIAL ESQUINA 90°: Si pierde la línea en el vértice, pivota sobre su eje
+  // hacia el último lado donde vio la línea hasta volver a engancharla.
   if (result.lineLost) {
     int pivot = constrain(max(pid.baseSpeed * 2, CORNER_PIVOT_SPEED), 90, limit);
     if (result.position == 0) {
-      // La línea quedó a la izquierda -> pivotar sobre el eje a la izquierda
       result.speedLeft  = -pivot;
       result.speedRight =  pivot;
     } else {
-      // La línea quedó a la derecha -> pivotar sobre el eje a la derecha
       result.speedLeft  =  pivot;
       result.speedRight = -pivot;
     }
@@ -170,8 +164,6 @@ LineCorrection computeLineCorrection(PIDConfig &pid) {
   }
 
   // 2. Cálculo del término Integral con protección Anti-Windup
-  //    En curvas muy cerradas (|error| > 2000), congelamos o limpiamos la integral
-  //    para que no cause sobreimpulso al salir de una curva de 90°.
   if (abs(result.error) < 2000) {
     integralError += (result.error * dt);
     integralError = constrain(integralError, -pid.integralLimit, pid.integralLimit);
@@ -193,9 +185,7 @@ LineCorrection computeLineCorrection(PIDConfig &pid) {
   // Limitar señal de corrección
   controlSignal = constrain(controlSignal, -pid.maxControl, pid.maxControl);
 
-  // 5. Reducción dinámica de velocidad de avance en curvas cerradas (|error| > 1800):
-  //    Si la línea llega a los sensores de los extremos (curva de 90°), reduce la
-  //    velocidad de avance hacia 0 para que el carro gire sobre su eje en lugar de seguir de largo.
+  // 5. Reducción dinámica de velocidad de avance en curvas cerradas (|error| > 1800)
   int effectiveBase = pid.baseSpeed;
   int absErr = abs(result.error);
   if (absErr > 1800) {
